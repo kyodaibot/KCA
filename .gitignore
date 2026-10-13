@@ -1,0 +1,17 @@
+# 密钥与环境变量
+.env
+.env.*
+!.env.example
+
+# 数据与本地产物
+data/raw/
+*.sqlite3
+
+# 前端
+node_modules/
+dist/
+
+# 系统与编辑器
+.DS_Store
+.idea/
+.vscode/
