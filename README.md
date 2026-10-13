@@ -20,3 +20,5 @@
 
 ## 文档
 Confluence：https://kyotou.atlassian.net/wiki/spaces/~712020da7a3e93863142ee86d45aecdacdc9e3/pages/edit-v2/360449?draftShareId=ee4217a6-65c4-4752-ac7c-f3b96d878e8a
+
+This is a test for Ching kaiyou
