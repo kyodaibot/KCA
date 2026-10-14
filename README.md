@@ -9,7 +9,13 @@
 - docs/      技术说明
 
 ## 本地启动
-（第 2 步完成后补充：docker compose up）
+前提：已安装并启动 Docker Desktop。
+
+1. 复制环境变量文件并按需修改：`cp .env.example .env`
+2. 启动：`docker compose up --build`
+3. 验证：浏览器访问 http://localhost:8000/health ，应返回 {"status":"ok"}
+4. 接口文档：http://localhost:8000/docs
+5. 停止：Ctrl+C，或另开终端执行 `docker compose down`
 
 ## 协作约定
 - 不直接推送到 main，从 main 切分支开发，通过 PR 合并
