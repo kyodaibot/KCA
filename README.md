@@ -1,4 +1,3 @@
-testtestest明天中午吃啥捏
 # course-bot
 
 面向京都大学学生的选课推荐 chatbot。
