@@ -12,13 +12,14 @@ This document supplements the development workflow; it does not redefine product
 
 - Read and follow applicable `AGENTS.md` instructions, including directory-level instructions.
 - Use `docs/requirements.md` for product scope.
-- Use `docs/technical-design.md` for shared architecture, contracts, and implementation rules.
+- Use `docs/technical-design.md` for shared architecture, data permissions, affiliation configuration, interfaces and state.
 - Use `plans/implementation-plan.md` for task sequence, dependencies, verification, and completion criteria.
 - Use this document for teaching pace, explanations, and review checkpoints.
+- Keep the current v0 single-query scope; follow-ups/comparisons belong to v0.5, and earned-credit management is later work. Use the roadmap's current task numbers, not the superseded MVP sequence.
 
 Do not weaken required tests or skip acceptance criteria to simplify a lesson. If a project instruction requires behavior incompatible with this learning workflow, identify the exact conflict before changing affected files and ask the learner how to resolve it. Do not silently rewrite project rules.
 
-This is a learner-directed workflow. It does not automatically impose approval checkpoints on collaborators or unrelated automated work.
+This is a learner-directed workflow. It does not automatically impose approval checkpoints on collaborators or separately authorized documentation synchronization. Preserve the step approvals below for subsequent learning tasks; an explicit documentation-only update does not start an implementation lesson.
 
 ## Start or Resume a Session
 
@@ -91,7 +92,7 @@ If the learner requests a persistent progress note, propose updating `docs/learn
 ## Reusable Session Prompt
 
 ```text
-Read AGENTS.md and docs/learning-workflow.md.
+Read AGENTS.md and plans/learning-workflow.md.
 Read docs/learning-progress.md if it exists.
 Inspect the current repository state and the relevant requirements,
 technical design, and implementation-plan task.

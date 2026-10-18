@@ -1,195 +1,184 @@
 # KCA Implementation Plan
 
-Build the project one verifiable increment at a time. This roadmap defines sequence and completion; [requirements](../docs/requirements.md) define product scope, [technical design](../docs/technical-design.md) defines shared implementation rules, and the [source-access record](../docs/discovery/source-access.md) holds acquisition evidence and restrictions.
+Build one small verifiable increment at a time for three contributors. [Requirements](../docs/requirements.md) define scope; [technical design](../docs/technical-design.md) is the single implementation authority; [source access](../docs/discovery/source-access.md) records permissions and acquisition evidence. This roadmap does not authorize implementation during a documentation-only task.
 
-## Chosen architecture
+## Goal, architecture and current progress
 
-Go + Gin in `backend/` serves the API and business logic using pgx + sqlc. Python jobs in `rag/` handle offline data preparation and retrieval evaluation; React/TypeScript/Vite stays in `frontend/`. PostgreSQL + pgvector is shared. The authoritative boundaries, migration owner and technology rationale are in [design §1](../docs/technical-design.md#1-architecture-and-ownership).
+**Goal:** v0 register/sign in → save required Profile → one independent natural-language query → up to 3–5 course cards for Informatics master's students, AY2026 second semester. Validate a small permitted real sample before full target ingestion. v0.5 owns follow-ups/explanations/comparisons; expanded search, progress, course plans and timetables come later.
 
-Keep the existing root layout and Compose entry point. Introduce the local Go/Docker environment early; add academic schema, generated queries and cross-language compatibility only when their stages need them. A permanent Python service is unnecessary.
+**Architecture:** React/TypeScript/Vite → Go/Gin (Auth, Profile, Course, minimal Curriculum, Chat; pgx/sqlc) → Python internal HTTP parsing/retrieval/ranking under `rag/`. Separate offline Python jobs publish academic metadata/documents/indexes. PostgreSQL/pgvector permissions, Go-owned migrations and state are defined in [design §§1–4](../docs/technical-design.md#1-architecture-and-ownership).
 
-## Scope and milestones
+Observed on `update/docs`, 2026-10-18, before this documentation synchronization: clean working tree; local main points to the same commit, while the local `origin/main` reference is older. No fetch or assumption about current remote state. Preserve these existing artifacts:
 
-The MVP includes accounts, onboarding and editable profiles/credit summaries, strict course search, reviewed curriculum predicates, semantic ranking, multilingual chat, comparisons, citations, feedback and personal-data deletion. Full scope and exclusions remain in [requirements §§5–7](../docs/requirements.md#5-functional-requirements).
+- Go module/Gin dependency and `newRouter` scaffold exist. `TestHealthReturnsOK` already expresses the desired health contract; the router is empty and there is no runnable Go entry point. Test execution is unverified in this documentation task. Continue Task 1 from these files; do not recreate them or claim the endpoint is finished.
+- Dockerfile/Compose scaffolding with PostgreSQL/pgvector, healthcheck and named `pgdata` volume exists. Backend image/command still target the removed legacy Python application; verified Go image/startup/DB availability remain pending. Existing configuration work is retained, not reset.
+- Frontend and `rag/` are placeholders. No account/Profile/recommendation implementation or real course/handbook acquisition is evidenced.
 
-Proposed pilot: Engineering / 地球工学科 / AY2026, one term initially, 30–100 permitted offerings and one applicable official curriculum document. Confirm this scope before collecting real data; a historical export must be labeled with its actual year. Affiliation/profile storage supports more scopes than the acquired course corpus.
+Task numbers below are the revised sequence, not completion claims. Former tasks for credit summaries, full curriculum predicates, Go vector retrieval and conversations are superseded. No completed application milestone is inferred from expected commands in the previous plan.
 
-- **First learning milestone:** Tasks 1–5, each completed separately; no course corpus or model provider required.
-- **First data milestone:** a 3–5-page permitted sample passes Tasks 7–11, producing one source-backed internal Go result or an honest empty result.
-- **First personalized milestone:** Task 17 serves authenticated, profile-aware structured recommendations using real session/onboarding guards.
-- **Complete MVP:** all tasks and [design §9 release gates](../docs/technical-design.md#9-verification-and-release-gates), including real-source quality evaluation. Synthetic fixtures prove engineering behavior only.
+## Milestones and contributor integration
 
-## Shared development workflow
+- **Local foundation:** Tasks 1–5 separately; no course source or model provider needed.
+- **Account/Profile flow:** Tasks 7–9 can proceed independently of academic acquisition.
+- **Real sample pipeline:** Task 6 permission gate → Tasks 10–12 and 15, initially a few permitted records. Missing handbooks remain an explicit coverage state.
+- **First end-to-end v0:** Tasks 13–19 integrate the sample with real auth/Profile guards and a live approved provider; complete target ingestion is not required. Fake-provider/synthetic demonstrations are labeled separately.
+- **Full target collection:** Task 20 expands only after sample extraction/evidence checks pass.
+- **Public release:** Task 21 adds the existing public gates; it does not block the first local/controlled milestone. No deployment is automatic.
 
-1. Begin implementation with a fresh Git status/diff and file inspection. Preserve unrelated work; never assume the scaffold, database contents or working tree still match earlier observations.
-2. Take one task at a time. At its start, choose focused files/interfaces, verify relevant current documentation and pin only dependencies needed for that task. Write meaningful failing checks, implement the smallest useful result, then run the task's checks and relevant regressions. Task completion requires observed results, not expected results written in a plan.
-3. Use Go unit/httptest and PostgreSQL integration checks for API/business logic, pytest for Python artifacts/jobs, and TypeScript/component/E2E checks for UI. Database tests use disposable named resources, never the normal service database; provider/mail tests use fakes without bypassing authentication.
-4. Keep test setup proportional to the task. Add race, cross-runtime, E2E, load and restore checks when their owning stages arrive. Authentication/profile fixtures must precede personalized HTTP checks; browser bootstrap/CSRF/proxy fixtures must precede authenticated E2E.
-5. Record deliverables, actual verification and remaining blockers before advancing. Review changes in small increments; commits and deployment follow the owner's separate instructions. No unavailable execution skill is required.
-
-## Development sequence
-
-Tasks 1–5 are deliberately small. Task 6 is an independent research track. Later tasks may use clearly labeled synthetic fixtures while source access is blocked; those fixtures cannot satisfy the real-data milestone or quality gates. Dependencies below describe engineering prerequisites; Task 6 additionally gates every use of real source material.
-
-### Task 1: Run a local Go health endpoint
-
-**Depends:** none.
-- **Deliver:** minimal Go module and Gin process in `backend/`, listening on port 8000 with `GET /health` returning `{"status":"ok"}`; graceful shutdown and only the configuration needed to run it.
-- **Verify:** run locally and check HTTP status/body with a focused handler test. No database, authentication, sqlc or Python setup is needed; health remains live when later dependencies are unavailable.
-
-### Task 2: Build and run the minimal Go image
-
-**Depends:** 1.
-- **Deliver:** small multi-stage backend Docker build and non-root runtime containing the Go binary, without Python dependencies or application secrets.
-- **Verify:** build/run it locally and exercise the same health contract through the published port. Inspect runtime user, shutdown and image exclusions; preserve unrelated scaffold files pending later cleanup.
-
-### Task 3: Start PostgreSQL + pgvector through Compose
-
-**Depends:** 2.
-- **Deliver:** minimal local Compose wiring for the Go backend image and PostgreSQL 16/pgvector, retaining the existing database volume and localhost development ports.
-- **Verify:** validate Compose configuration without exposing secrets; start a separate disposable project, check database health and extension availability, and confirm data survives restart. Do not reset an existing volume to make startup succeed.
-
-### Task 4: Connect with pgx and add readiness
-
-**Depends:** 3.
-- **Deliver:** pgx pool, environment-based database configuration, bounded connection checks and `GET /ready`.
-- **Verify:** readiness is 200 with a reachable database and 503 with invalid/unavailable database connectivity; health still returns 200. Close connections on shutdown and keep credentials out of responses/logs.
-
-### Task 5: Introduce one versioned SQL migration
-
-**Depends:** 4.
-- **Deliver:** explicit migration command, first small migration establishing the schema-contract registry, and readiness validation for the schema version now required by the application. Follow [migration ownership](../docs/technical-design.md#1-architecture-and-ownership).
-- **Verify:** apply to a fresh disposable database, repeat without duplicate changes, and exercise an upgrade/version mismatch. Runtime startup does not migrate automatically; keep academic tables and sqlc out of this increment.
-
-### Task 6: Establish a permitted source sample
-
-**Depends:** none; proceed independently of Tasks 1–5.
-- **Deliver:** update the [source-access record](../docs/discovery/source-access.md) with allowed acquisition/use, select a 3–5-page sample or export, label published/missing fields and locate an applicable official curriculum document and period/year evidence.
-- **Verify:** every real artifact has original URL, year evidence, acquisition time, encoding/hash and explicit storage/display/embedding permissions. Human comparison preserves Japanese text/layout. Missing authorization or rule applicability is recorded as blocked/unverified; do not automate access to the disallowed host.
-
-### Task 7: Introduce academic schema and artifact contracts
-
-**Depends:** 5; 6 informs real-source fields but is not needed for synthetic schema work.
-- **Deliver:** focused migrations for catalog/provenance/meetings/assessment and reviewed rule structures in [design §2](../docs/technical-design.md#2-data-model-and-artifact-contracts), plus versioned normalized artifact schemas. Establish runtime roles and compatibility checks as tables are introduced.
-- **Verify:** constraints reject invalid identities, broken evidence links and incompatible contract versions; unknown fields remain nullable. Test course/offering distinction, multiple meetings, immutable revisions and restricted RAG grants without adding identity tables prematurely.
-
-### Task 8: Add sqlc queries and a Go catalog reader
-
-**Depends:** 7.
-- **Deliver:** sqlc configuration reading canonical migrations, generated pgx query code and a small Go reader for synthetic catalog/evidence fixtures.
-- **Verify:** generation is reproducible; queries round-trip UUIDs, UTF-8, UTC timestamps and nullable fields. Keep generated rows separate from API models; use parameterized queries and no second schema authority.
-
-### Task 9: Parse syllabus artifacts and produce Markdown
-
-**Depends:** 7 contracts; 6 for real artifacts.
-- **Deliver:** Python package/CLI under `rag/`, manifest validation, HTML parsing, source-needed PDF adapter, normalized records, assessment extraction candidates and Markdown with evidence locators.
-- **Verify:** hand-labeled CP932/HTML and representative PDF tables retain text, all meetings and page references. Corrupt, undecodable, image-only or unsupported layouts require review. Apply the [candidate/accepted assessment lifecycle](../docs/technical-design.md#3-assessment-evidence-lifecycle); missing credits/year or mixed grading must not become confirmed facts.
-
-### Task 10: Publish revisions and synchronize incrementally
-
-**Depends:** 7 and 9; 6 for real publication.
-- **Deliver:** transactional Python publication, review acceptance, stable identity mapping, audit/coverage reporting and operator-triggered incremental refresh.
-- **Verify:** repeat import is idempotent, partial sync never withdraws records, failed publication leaves the prior revision intact, and a changed/conflicting assessment invalidates the current accepted answer. Exercise missing-year quarantine, duplicate titles and the [withdrawal policy](../docs/technical-design.md#2-data-model-and-artifact-contracts).
-
-### Task 11: Read Python data in Go and enforce hard filters
-
-**Depends:** 8 and 10.
-- **Deliver:** Python-write/Go-read compatibility fixtures and internal structured search over accepted current academic revisions. No anonymous personalized route is needed for this increment.
-- **Verify:** source/evidence/decimal/null values round-trip; day and period belong to the same meeting; multi-meeting fit, period ranges, unknown restrictions, irregular courses, year/term scope and strict no-exam constraints produce exact expected sets. Empty results never relax filters. Follow [design §4](../docs/technical-design.md#4-search-rules-and-response-behavior).
-
-### Task 12: Evaluate reviewed curriculum predicates in Go
-
-**Depends:** 7 and 11; 6 plus applicable reviewed documents for real eligibility claims.
-- **Deliver:** operator import of reviewed rules, version/cohort/track resolution, deterministic predicate evaluation and cited category explanations.
-- **Verify:** effective-date boundaries, exclusions, exact course mappings, missing history/track and overlapping versions produce the defined eligible/ineligible/unverified outcomes. Aggregate self-reported credits cannot prove completion. Python/LLM retrieval does not evaluate these predicates.
-
-### Task 13: Add accounts and revocable sessions
-
-**Depends:** 5; may proceed independently of course acquisition.
-- **Deliver:** account migration, registration/login/logout/session APIs, password hashing, session/CSRF/Origin controls, database-backed limits and genuine isolated two-user test clients using fake mail.
-- **Verify:** [design §5 security defaults](../docs/technical-design.md#5-authentication-and-personal-data-security), generic failures, cookie rotation, logout replay, expiry, restart persistence, multi-worker rate limits and secret-free telemetry. Never disable guards to create fixtures.
-
-### Task 14: Complete email verification and recovery
-
-**Depends:** 13.
-- **Deliver:** expiring single-use verification/reset actions, recent-password reauthentication, fake local mail flow and configurable real mail adapter.
-- **Verify:** used/expired tokens fail, reset revokes all sessions, reauthentication rotates session/CSRF, and unverified accounts cannot reach personalized access. Local tests send no real mail; public deployment cannot bypass mail/HTTPS prerequisites.
-
-### Task 15: Persist profiles and independent credit summaries
-
-**Depends:** 7 and 13.
-- **Deliver:** owner-scoped profile/taxonomy/options APIs, required-field onboarding state, exact summary decimals, optional versioned category reports, optimistic revision checks and genuinely onboarded two-user API fixtures.
-- **Verify:** [design §6](../docs/technical-design.md#6-profile-and-credit-semantics), including save/reload/edit of every summary with no curriculum rules, null/zero/omission distinctions, category scope, atomic invalid-patch rollback, ownership tampering and concurrent edits. Login/restart retains separate profiles; optional fields may all be skipped.
-
-### Task 16: Interpret intent with minimized provider input
-
-**Depends:** 11 and 15; fake provider is sufficient initially.
-- **Deliver:** typed multilingual intent extraction, alias resolution, provider adapter/deadlines and server-side projection/redaction per [design §8](../docs/technical-design.md#8-provider-privacy-and-operations).
-- **Verify:** Japanese/Chinese/English ambiguity and follow-up cases, invalid enums/extra keys, malformed model output, timeout and prompt injection. Inspect structured and free-text payloads; unsafe minimization yields no provider call and credits are omitted unless explicitly needed.
-
-### Task 17: Serve profile-aware structured recommendations
-
-**Depends:** 11–16.
-- **Deliver:** authenticated search/chat endpoints, fresh profile context, confirmed temporary overrides, deterministic reason/citation cards and source-linked comparisons. Use the [request contract](../docs/technical-design.md#7-api-and-temporary-profile-overrides).
-- **Verify:** real session/onboarding/CSRF/revision guards on both endpoints; no repeated questions for stored fields; unconfirmed/model-generated overrides cannot take effect or write profiles. Test account switches, stale context, explicit clears, comparison IDs, coverage warnings, unknown evidence IDs and provider failure. This milestone can return structured recommendations before semantic ranking is added.
-
-### Task 18: Produce chunks and corpus embeddings in Python
-
-**Depends:** 10; selected provider/model and processing rights for real embeddings.
-- **Deliver:** versioned chunk/vector/model schema additions, section/evidence-bound chunks, shared model manifest, corpus embedding job and changed-chunk rebuild support.
-- **Verify:** Japanese boundaries/overlap, source revision ownership, model fingerprints, dimension/preprocessing and partial-coverage reporting. Corpus vectors never contain profile/credit data; jobs terminate and do not introduce a Python API.
-
-### Task 19: Add Go query embeddings and vector ranking
-
-**Depends:** 8, 11, 12 and 18; integrates with 17 when available.
-- **Deliver:** query embedding adapter matching the corpus model, pgvector driver/sqlc compatibility check, filtered exact ranking and scoped rule-passage retrieval.
-- **Verify:** Python-written vectors are read by Go with documented numerical tolerance; wrong model/revision/dimension fails clearly; ranked IDs remain a subset of hard candidates, repeated chunks do not duplicate offerings, stale vectors/rule passages are excluded, and empty topics skip embedding calls. Provider outage cannot substitute an old model or bypass guards.
-
-### Task 20: Establish authenticated browser infrastructure
-
-**Depends:** 17 and 14.
-- **Deliver:** React/Vite base, generated API types, same-origin proxy, cookie/CSRF-aware client, session/profile bootstrap, onboarding gate and isolated API-onboarded browser fixtures.
-- **Verify:** personalized calls wait for bootstrap/completion, rotation refreshes CSRF, 401 clears personal state, 403/409 are explicit and two browsers never share context. These checks precede authenticated feature E2E; no bearer tokens in browser storage.
-
-### Task 21: Build the Japanese-first discovery interface
-
-**Depends:** 20; 19 adds semantic behavior without blocking structured UI development.
-- **Deliver:** chat, filter summary, course/evidence cards, comparison and hypothetical-value review; optional Chinese/English responses, accessible keyboard interactions, loading/error/empty/clarification states.
-- **Verify:** authenticated clarification → cards → multilingual follow-up → comparison journeys; preserve unrelated filters, render excerpts as text, show all meetings/unknowns/snapshot coverage, submit exact reviewed overrides and label hypothetical results without changing saved profiles.
-
-### Task 22: Add registration, onboarding and profile-management forms
-
-**Depends:** 15, 20 and 21.
-- **Deliver:** register/verify/login/recovery screens, short required onboarding, optional progress Skip, profile editor and account settings using the existing client/gates.
-- **Verify:** form-driven register → verify → login → onboard → recommend → hypothetical exploration → explicit saved edit → refreshed recommendation. Exercise no-rule summaries, invalid dependent affiliation choices, revision conflicts retaining unsaved edits, reload, expiry and account switching.
-
-### Task 23: Implement personal-data deletion
-
-**Depends:** 14, 15 and 22.
-- **Deliver:** profile/account deletion, recent-auth UI, transactional scoped deletion markers and operator cleanup/replay support under [design §5](../docs/technical-design.md#5-authentication-and-personal-data-security).
-- **Verify:** profile deletion resets onboarding and removes credits; account deletion cascades owned personal rows and revokes sessions; stale/recent-auth failures, concurrent edits and another user's/catalog rows are safe. Test replay logic on disposable snapshots; full packaged restoration rehearsal belongs to Task 25.
-
-### Task 24: Evaluate quality, regressions, feedback and performance
-
-**Depends:** 12, 17–19 and 21–23; permitted labeled snapshot for real recommendation-quality claims.
-- **Deliver:** Python gold/retrieval evaluator consuming actual Go responses, sanitized Go timing/coverage counters and opt-in aggregate feedback. Follow [design §9](../docs/technical-design.md#9-verification-and-release-gates).
-- **Verify:** all specified extraction/filter/rule/retrieval/grounding/conversation/latency gates with counts and per-language results. Regression tests cover source/model changes, privacy and ownership. Synthetic/fake results are reported separately; provider quality and real-source precision cannot be inferred from them.
-
-### Task 25: Finish packaging, restoration and release acceptance
-
-**Depends:** 23 and 24.
-- **Deliver:** reproducible Go/frontend images, opt-in finite Python job image, explicit migration/maintenance steps, environment separation, documented startup/import/rebuild/backup/restore/rollback and reviewed scaffold retirement.
-- **Verify:** packaged auth/profile/search/job flows, readiness/version mismatches, non-root/images without secrets, RAG role isolation, persistent volumes and a full encrypted-backup/deletion-ledger restore drill using a separate disposable Compose project. Apply all [release gates](../docs/technical-design.md#9-verification-and-release-gates) and [safe cutover rules](../docs/technical-design.md#10-local-environment-and-safe-cutover). Hosted deployment requires a concrete proposal and explicit approval.
-
-## Blockers and decisions
-
-| Decision or blocker | Needed before | Current position |
+| Contributor | Main work | Integration points |
 |---|---|---|
-| Permitted syllabus/export acquisition, storage, excerpt display, embedding and redistribution | Real artifacts and quality evaluation | Prior robots restriction blocks automated syllabus crawling; [research record](../docs/discovery/source-access.md) defines the outstanding checks. |
-| Pilot department/year/term, actual current period definitions and admission-cohort/track rules | Reliable real recommendations/category claims | Engineering/地球工学科/AY2026 is proposed; authoritative applicability is not established. |
-| Rule reviewer, affiliation taxonomy and category mappings | Reviewed rule publication | Missing rules leave category outcomes unverified, without blocking profile or summary storage. |
-| LLM/embedding provider, model/revision, data terms and budget | Live provider use and semantic release gate | Adapters/fakes allow independent progress; default proposals and budget measurement are in the design. |
-| Mail sender, public origin/HTTPS and backup-window approval | Public launch | Fake mail/local development first; security defaults remain binding until explicitly revised. |
-| Supported toolchain/library/image pins and vector/sqlc compatibility | Their owning engineering stages | Verify when introduced; a documented typed pgx fallback is allowed only for demonstrated vector compiler limitations. |
+| Frontend contributor | Task 9 auth/Profile, then 18 query/cards; contract mocks can begin from the design while Go is pending. | Configuration flags/parent codes, session/CSRF bootstrap, Profile revisions, response/coverage/error states. |
+| Go contributor | Tasks 1–5, 7–8, 10, 12–13 and 17; define migrations/grants with Python input. | Canonical SQL, Python publication compatibility, candidate IDs/revisions, internal HTTP, database-filled cards. |
+| Python contributor | Task 6, 11, 14–16; assist handbook mappings and 19–20. | Artifact/manifest format with Go, restricted writer/reader roles, parse/recommend DTOs, scoped evidence/IDs and metrics. |
 
-No source access, provider or deployment decision is needed to begin Task 1. Completing an early milestone does not waive remaining MVP acceptance criteria.
+Tasks 19 and 21 are shared integration checks, not separate services. Contributors can work independently against concise fixtures/contracts; each learner still follows the teaching checkpoints when that workflow is invoked.
+
+## Shared workflow and review focus
+
+Start each task with fresh branch/status/diff/file inspection; preserve unrelated work. Choose precise files/interfaces/dependency pins at task start and fetch current library documentation when applicable. Add meaningful failing checks for behavior, implement minimally, then run relevant checks/regressions. Completion requires observed output. Do not install the whole stack upfront or create another planning/handoff document.
+
+Use Go unit/httptest and disposable PostgreSQL integration, Python pytest, frontend component/E2E checks. Real auth/Profile fixtures precede personalized HTTP checks; same-origin/CSRF/session/isolation fixtures precede authenticated E2E. Fakes prove engineering only. Test resources are disposable; never reset the existing volume. Commit/push/deploy require separate instructions.
+
+Pay special attention to bypassed disabled controls, missing handbook coverage, personalization before budget cutoff, explicit exams versus unknown assessment, and provider/ID/reference failures. The tasks below own these checks. Do not introduce v0 conversation, progress, assessment-review state machines or full curriculum-engine tests.
+
+## Tasks
+
+### Task 1: Finish the local Go health endpoint
+
+**Owner:** Go. **Depends:** none.
+- **Deliver:** complete the existing router and add a runnable Gin process on port 8000, health JSON `{"status":"ok"}` and graceful shutdown. Reuse the existing test.
+- **Verify:** run the focused handler test and local HTTP check; status/body/content type match. No DB/auth/sqlc/Python needed. Record actual commands/results; current test file alone is not a pass.
+
+### Task 2: Build the minimal Go image
+
+**Owner:** Go. **Depends:** 1.
+- **Deliver:** Go multi-stage build/non-root runtime without Python or secrets; inspect legacy files before replacing the backend image.
+- **Verify:** build/run in isolation, check health and shutdown/user/image exclusions. Preserve unrelated scaffold and the existing DB volume.
+
+### Task 3: Wire Go and PostgreSQL/pgvector in Compose
+
+**Owner:** Go. **Depends:** 2.
+- **Deliver:** adapt existing Compose backend wiring while retaining DB configuration/volume and local ports. This does not yet add all later services.
+- **Verify:** safe config validation, separate disposable project startup, DB health/extension availability and persistence after restart; never expose resolved secrets or use normal-volume resets.
+
+### Task 4: Add pgx readiness
+
+**Owner:** Go. **Depends:** 3.
+- **Deliver:** bounded pgx pool/configuration and `/ready`, resource shutdown and sanitized errors.
+- **Verify:** ready 200 with DB and 503 without it; health remains 200. No schema migration on startup.
+
+### Task 5: Establish explicit migration execution
+
+**Owner:** Go. **Depends:** 4.
+- **Deliver:** single `backend/db/migrations/` sequence, minimal first migration/version check and explicit operator command. Add domain tables in their owning tasks.
+- **Verify:** fresh disposable apply, repeat/upgrade/version-mismatch behavior; runtime never performs DDL. sqlc is generation only; no Python schema authority.
+
+### Task 6: Validate a permitted Informatics sample
+
+**Owner:** Python. **Depends:** none; parallel with foundation/accounts.
+- **Deliver:** dated source-specific permission/use evidence and 3–5 representative course pages/export sections for AY2026 second semester; inspect formats, identifiers, encoding, meetings and assessment text. Locate applicable Informatics timetable/handbook sources separately.
+- **Verify:** originals carry URL/year/time/hash and permitted storage/display/embedding decisions; human-check extracted field labels. Historical Engineering/ILAS timing is not new-scope proof. Missing source access blocks real acquisition only; missing handbook does not block basic sample discovery. No crawler before permission, no fabricated no-exam example.
+
+### Task 7: Accounts, sessions and isolated clients
+
+**Owner:** Go. **Depends:** 5.
+- **Deliver:** account/session migration and register/login/logout/session APIs with hashing, cookies, CSRF/Origin, limits, genuine two-user fixtures and explicit local fake-mail mode under [design §7](../docs/technical-design.md#7-security-privacy-and-state).
+- **Verify:** generic failures, ownership tampering, rotation/logout replay/expiry, restart persistence, limits and no personal logs. Public mail/restore checks belong to 21; essential security stays here.
+
+### Task 8: Configuration and persistent Profile
+
+**Owner:** Go. **Depends:** 7.
+- **Deliver:** Go-maintained initialization for [design §2 configuration](../docs/technical-design.md#2-affiliation-configuration-and-profile), owner-scoped Profile/options APIs, revision checks, completion gate and reauthenticated Profile/account deletion. Keep earned credits/history absent.
+- **Verify:** exact configuration, disabled-affiliation rejection, invalid parent/コース rejection even on direct requests, fixed master's level and independent years. Two users save/reload/edit across sessions/devices; next query loads edits; stale writes fail atomically. Deletion resets onboarding/revokes sessions without touching other users/catalog. No handbook dependency.
+
+### Task 9: Frontend account and Profile journey
+
+**Owner:** Frontend. **Depends:** 8 for live integration; mocks may start from design now.
+- **Deliver:** Vite/TypeScript base, same-origin cookie/CSRF client, session/Profile bootstrap, separate registration/setup/edit forms and reauthenticated deletion controls, grouped disabled affiliation options and isolated browser fixtures.
+- **Verify:** register → sign in → required Profile save; omitted fields block personalization. Disabled controls have labels and backend errors; seven コース are named correctly. Test reload/edit/revision conflict/logout/account switch and personal-state clearing. No credit inputs.
+
+### Task 10: Minimal academic schema and shared artifact contract
+
+**Owner:** Go with Python. **Depends:** 5; 6 informs real-source fields.
+- **Deliver:** focused course/offering/source/meeting and document/index/mapping-link migrations plus small versioned artifact contract. Define separate Go, configuration-admin, Python-online and offline-writer grants from [design §§3–4](../docs/technical-design.md#3-database-permissions-and-migrations).
+- **Verify:** stable source/course/offering identity, source/section/year/revision links, exact credits/nulls and multiple meetings; forbidden personal-table/DDL access denied for both Python roles and academic writes denied online. No assessment classification table, category engine or duplicate schema.
+
+### Task 11: Parse and publish the first sample
+
+**Owner:** Python. **Depends:** 10; 6 for real data.
+- **Deliver:** focused manifest/acquisition/parsing/normalization/publication modules under `rag/`; preserve original assessment text, Markdown/locators and file/object keys. Choose HTML/PDF adapters from observed sample, not assumptions.
+- **Verify:** human-labeled encoding/tables/meetings/credits/source fields; corrupt/unknown cases stay unknown. Repeat publication is idempotent; revisions publish atomically, missing year blocks publication, partial sync does not withdraw data, changes invalidate derivatives. Use restricted offline writes, never migrations.
+
+### Task 12: Go Course reader and parameterized SQL
+
+**Owner:** Go. **Depends:** 10; 11 for real compatibility.
+- **Deliver:** sqlc generation/pgx reader, compact candidate DTO and same-meeting/term/year SQL with must/prefer separation. No public standalone search UI/API required.
+- **Verify:** Python-write/Go-read UUID/UTF-8/timestamp/decimal/null/reference compatibility on PostgreSQL; meeting ranges, additional/unknown meetings, empty scope and no silent relaxation. Offering unit is not automatically restricted to Profile affiliation; no model SQL or mandatory exam SQL.
+
+### Task 13: Minimal Curriculum scope lookup
+
+**Owner:** Go with Python source review. **Depends:** 10; 6 only for real reviewed mappings.
+- **Deliver:** manually confirmed school/コース/degree/admission-year → handbook document/section resolution, with source/effective scope. Implement `missing`/`ambiguous` outcomes before real documents exist.
+- **Verify:** cohort boundaries, overlap/missing mappings and source versions; no newest-wins guess or full predicate engine. Missing handbook allows discovery and emits the alignment warning. Real handbook mapping is optional for the first basic discovery flow, never faked.
+
+### Task 14: Internal Profile-aware parsing API
+
+**Owner:** Python. **Depends:** design contract; 8 supplies real projected context at integration.
+- **Deliver:** `/internal/parse-intent`, private service authentication, provider adapter/Instructor schemas, filters/semantic/must/prefer/unresolved response, sanitized context and bounded failures.
+- **Verify:** Profile is in the first call; broad requests need no forced topic. Japanese/Chinese/English negation/must/prefer, invalid model keys/output, prompt injection and unavailable provider. Unresolved timetable wording prompts clarification via Go; no model Profile writes. Fake provider first, approved live provider later.
+
+### Task 15: Academic documents, summaries and vector baseline
+
+**Owner:** Python. **Depends:** 11; approved model/processing rights for real embeddings.
+- **Deliver:** offline document/section chunks, compact course-summary indexes and embeddings with model/version/dimension/preprocessing manifests and explicit offering/revision links. Local files suffice for development.
+- **Verify:** source/section/semester isolation, changed-source rebuild, partial coverage/model mismatch and Python online read compatibility. No student context in offline artifacts; no new LLM calls assumed necessary for document reading or baseline summaries. Generated summaries, if later used, have separately measured costs.
+
+### Task 16: Scoped Python recommendation API
+
+**Owner:** Python. **Depends:** 12 candidate contract, 13 coverage contract, 14 provider base and 15 retrieval data; reviewed real handbooks optional.
+- **Deliver:** `/internal/recommend` selects by Profile/handbook/intent within candidate IDs before applying a configurable inspection budget, then vector retrieval/direct section reading and one generative evidence-ranking call. Return IDs/reasons/references/uncertainty and inspected scope/counts. Add a minimal local Python online image/Compose service with read-only credentials; offline execution stays separate, with final packaging at 21.
+- **Verify:** relevant Profile candidate survives generic-ranking adversarial fixtures; no arbitrary first-N cutoff, cross-candidate/semester reference or relational SQL refiltering. Missing handbooks work; unknown exam evidence is separate, explicit exams excluded for strict no-exam. Check batch-empty/partial, private credential and provider failures. Hybrid, if justified later, scopes both branches.
+
+### Task 17: Go Chat orchestration and validated cards
+
+**Owner:** Go. **Depends:** 8, 12–14 and 16 (fake internal responses first).
+- **Deliver:** independent `/api/chat` request: fresh Profile/target, minimized parsing call, validated SQL, handbook scope, compact RAG request, response checks and database-filled cards. Add internal HTTP deadlines, safe errors and aggregate metrics.
+- **Verify:** real auth/completion/CSRF guards, saved edits used next request, no identity/secrets/full Profile sent, no generated SQL, verified timetable or clarification. Validate candidate/course pairs, active evidence and facts; invalid response fails safely. Distinguish SQL-empty from inspected-batch-empty. Two generative calls normally, separate retries/embeddings; no durable chat or expansion. Schema checks do not prove all claim semantics.
+
+### Task 18: Single-query discovery UI
+
+**Owner:** Frontend. **Depends:** 9 and 17; contract mocks can precede live RAG.
+- **Deliver:** explicit AY2026 second-semester scope, one query input, at most five database-fact cards with short reason/source, separate “Needs confirmation,” coverage/partial/empty/clarification/error states and accessible Japanese-first interaction.
+- **Verify:** form-based auth → saved Profile → independent query → cards on the permitted sample; incomplete/updated Profile and cross-user switching. Clarification requires a complete resubmission; refresh may discard question/results. No follow-up/comparison/show-more/credit interface or remembered filters.
+
+### Task 19: Fixed sample evaluation and first end-to-end acceptance
+
+**Owner:** all three. **Depends:** 6, 17–18 and their prerequisites; approved live provider for real model claims.
+- **Deliver:** small fixed deterministic cases and permitted labeled sample, Go/Python/UI integration results, human-checked claims/evidence and actual token/latency/candidate-budget measurements under [controlled gates](../docs/technical-design.md#9-verification-and-release-gates).
+- **Verify:** availability/relationships, extraction/negation/schedule/must-prefer, Profile-before-truncation, missing handbooks, boundaries/unknowns, IDs/evidence/partial/empty, two users/edits and failures. State sample coverage explicitly; no fabricated quality or startup results. This milestone does not wait for complete target ingestion, public mail/restore or v0.5 tests.
+
+### Task 20: Expand to the complete target collection
+
+**Owner:** Python, with Go metadata checks and shared source review. **Depends:** 19 and permitted target inventory.
+- **Deliver:** expand the validated pipeline to the agreed complete Informatics-target AY2026 second-semester offering collection, with scope/IDs/sections reconciled against an authorized source inventory. Preconfigured other affiliations do not broaden collection.
+- **Verify:** inventory counts/gaps, repeat/partial/update behavior, encoding/field/evidence checks and scoped retrieval regression. Unknown inventory/completeness remains disclosed, not “complete.” Acquire applicable handbooks only through permitted paths and reviewed applicability; their absence does not stop basic discovery.
+
+### Task 21: Public-release security, quality and packaging
+
+**Owner:** all three. **Depends:** 19–20; mail/origin/provider/source/hosting decisions for the parts that require them.
+- **Deliver:** verification/recovery mail actions, public HTTPS/secrets, minimal Go/Python-online/frontend images plus explicit offline job execution; startup/migration/import/index/rollback and backup/deletion-replay runbooks. Apply [public gates](../docs/technical-design.md#9-verification-and-release-gates), not the former conversation/rule-engine MVP gates.
+- **Verify:** frozen public benchmark and measured load/cost, packaged flows, denied role access, real token/recovery behavior and disposable encrypted restore/deletion replay. No normal-volume reset. Report unmet gates; do not deploy or incur hosting costs without separate authorization.
+
+## Open evidence and bounded blockers
+
+| Evidence/decision | Blocks | Does not block |
+|---|---|---|
+| Source-specific permitted acquisition/storage/display/embedding and real sample format | Real academic ingestion/quality claims | Foundation, accounts/Profile and synthetic contract checks |
+| Complete target inventory | Claim of full target collection at 20 | Small-sample first end-to-end milestone |
+| Official confirmation of configured affiliation names/relationships | Claim of official verification | User-specified configuration implementation with its unverified label |
+| Applicable Informatics period definitions | Automatic mapping of ambiguous timetable phrases | Clear numeric-slot queries or clarification |
+| Reviewed handbook editions/mappings | Curriculum alignment claims | Basic discovery with missing-coverage warning |
+| Provider/model/data terms and measured budget | Live LLM/embedding use and real quality claims | Fake adapters and deterministic boundary tests |
+| Public mail/HTTPS/backup/hosting | Public release/deployment | Controlled local flow with essential security |
+
+Next smallest implementation work is Task 1: run the existing health test, implement its route plus the minimal Go entry point, and observe local health/shutdown results through the learning workflow if requested. This documentation task executes none of those commands.
