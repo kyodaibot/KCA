@@ -20,4 +20,5 @@ dist/
 docs/prompt/
 
 # python
-.venv/
+rag/.venv/
+__pycache__/
