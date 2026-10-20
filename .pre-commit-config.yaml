@@ -1,0 +1,16 @@
+repos:
+  # 通用的基础检查
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: trailing-whitespace      # 删除行尾多余空格
+      - id: end-of-file-fixer        # 确保文件以换行结尾
+      - id: check-yaml               # 检查 YAML 语法
+      - id: check-added-large-files  # 防止误提交大文件（比如数据集）
+      - id: detect-private-key       # 检测私钥文件
+
+  # 密钥扫描
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.30.0
+    hooks:
+      - id: gitleaks
